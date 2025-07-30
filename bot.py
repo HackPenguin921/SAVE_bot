@@ -5,6 +5,7 @@ import json
 import os
 from datetime import datetime
 from geopy.geocoders import Nominatim
+from dotenv import load_dotenv
 import feedparser
 
 load_dotenv()
