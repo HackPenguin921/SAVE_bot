@@ -77,6 +77,7 @@ async def japanhelp(ctx):
         "!stop          地震通知を停止します。（管理者のみ）\n"
         "!start         地震通知を再開します。（管理者のみ）\n"
         "\n※ 地震速報は気象庁などの情報を元に配信しています。\n"
+        
         "※ 地震発生時は安全確保を第一に行動してください。"
     )
     await ctx.send(help_message)
