@@ -61,6 +61,22 @@ async def showchannel(ctx):
         await ctx.send("通知チャンネルはまだ設定されていません。")
 
 @bot.command()
+async def japanhelp(ctx):
+    help_message = (
+        "【地震Bot ヘルプ】\n\n"
+        "使い方例：\n"
+        "!japanhelp      このヘルプを表示します。\n"
+        "!setarea [地域名]   地震通知を受け取る地域を設定します。例: !setarea 東京\n"
+        "!status         現在の設定状況を確認します。\n"
+        "!stop           地震通知を停止します。\n"
+        "!start          地震通知を再開します。\n\n"
+        "※ 地震速報は気象庁などの情報を元に配信しています。\n"
+        "※ 地震発生時は安全確保を第一に行動してください。\n\n"
+        "何か質問があれば管理者までご連絡ください。"
+    )
+    await ctx.send(help_message)
+    
+@bot.command()
 async def setregion(ctx, *, location):
     latlon = geocode_location(location)
     if latlon:
