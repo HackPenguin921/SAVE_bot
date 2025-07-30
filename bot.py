@@ -10,7 +10,7 @@ import feedparser
 
 load_dotenv()
 intents = discord.Intents.default()
-intents.messages = True
+intents.message_content = True  # ← これが必須
 intents.guilds = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -75,7 +75,7 @@ async def japanhelp(ctx):
         "何か質問があれば管理者までご連絡ください。"
     )
     await ctx.send(help_message)
-    
+
 @bot.command()
 async def setregion(ctx, *, location):
     latlon = geocode_location(location)
