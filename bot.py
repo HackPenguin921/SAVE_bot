@@ -7,10 +7,12 @@ from datetime import datetime
 from geopy.geocoders import Nominatim
 from dotenv import load_dotenv
 import feedparser
+from math import radians, sin, cos, sqrt, atan2
 
 load_dotenv()
+
 intents = discord.Intents.default()
-intents.message_content = True  # ← これが必須
+intents.message_content = True  # これが必須
 intents.guilds = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -36,7 +38,9 @@ user_region = load_json(REGION_FILE)
 last_quake = load_json(LAST_QUAKE_FILE)
 last_jalert = load_json(LAST_JALERT_FILE)
 
-# 地名→緯度経度
+# 通知ON/OFFフラグ（サーバー単位にもできますが今回は全体で管理）
+notifications_active = True
+
 def geocode_location(location_name):
     geolocator = Nominatim(user_agent="quake_bot")
     location = geolocator.geocode(location_name)
@@ -66,13 +70,14 @@ async def japanhelp(ctx):
         "【地震Bot ヘルプ】\n\n"
         "使い方例：\n"
         "!japanhelp      このヘルプを表示します。\n"
-        "!setregion [地域名]   地震通知を受け取る地域を設定します。例: !setarea 東京\n"
-        "!status         現在の設定状況を確認します。\n"
-        "!stop           地震通知を停止します。\n"
-        "!start          地震通知を再開します。\n\n"
-        "※ 地震速報は気象庁などの情報を元に配信しています。\n"
-        "※ 地震発生時は安全確保を第一に行動してください。\n\n"
-        "何か質問があれば管理者までご連絡ください。"
+        "!setregion [地域名]   地震通知を受け取る地域を設定します。例: !setregion 東京\n"
+        "!showregion     現在の設定地域を確認します。\n"
+        "!setchannel     このチャンネルを通知チャンネルに設定します。（管理者のみ）\n"
+        "!showchannel    通知チャンネルを表示します。\n"
+        "!stop          地震通知を停止します。（管理者のみ）\n"
+        "!start         地震通知を再開します。（管理者のみ）\n"
+        "\n※ 地震速報は気象庁などの情報を元に配信しています。\n"
+        "※ 地震発生時は安全確保を第一に行動してください。"
     )
     await ctx.send(help_message)
 
@@ -98,8 +103,19 @@ async def showregion(ctx):
     else:
         await ctx.send("あなたの地域はまだ設定されていません。")
 
-# 距離計算（ハーバーサイン式）
-from math import radians, sin, cos, sqrt, atan2
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def stop(ctx):
+    global notifications_active
+    notifications_active = False
+    await ctx.send("地震通知を停止しました。")
+
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def start(ctx):
+    global notifications_active
+    notifications_active = True
+    await ctx.send("地震通知を再開しました。")
 
 def haversine(lat1, lon1, lat2, lon2):
     R = 6371.0
@@ -109,16 +125,17 @@ def haversine(lat1, lon1, lat2, lon2):
     c = 2*atan2(sqrt(a), sqrt(1-a))
     return R*c
 
-# 震度簡易推定
 def estimate_shindo(magnitude, distance_km):
     if distance_km == 0:
-        distance_km = 1  # ゼロ除算防止
+        distance_km = 1
     intensity = 1.5 * magnitude - 3.0 * (distance_km / 100)
     return max(0, round(intensity))
 
-# EEWチェック（P2PQuake v2 JMA Quake API）
 @tasks.loop(seconds=30)
 async def check_quake():
+    if not notifications_active:
+        return
+
     url = "https://api.p2pquake.net/v2/jma/quake"
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as resp:
@@ -145,7 +162,6 @@ async def check_quake():
                 if not channel:
                     continue
 
-                # 各ギルドのユーザーの震度推定をまとめる（簡易版）
                 mentions = []
                 for user_id, region in user_region.items():
                     d = haversine(lat, lon, region["lat"], region["lon"])
@@ -164,9 +180,11 @@ async def check_quake():
 
                 await channel.send(msg)
 
-# 津波警報チェック（P2PQuake 津波コード561）
 @tasks.loop(seconds=60)
 async def check_tsunami():
+    if not notifications_active:
+        return
+
     url = "https://api.p2pquake.net/v2/history?codes=561&limit=1"
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as resp:
@@ -192,11 +210,13 @@ async def check_tsunami():
                     msg_lines.append(f"{area}：{grade}（{immediate}）")
                 await channel.send("\n".join(msg_lines))
 
-# J-ALERTチェック（NHK RSS監視）
 last_entry_id = None
 
 @tasks.loop(seconds=120)
 async def check_jalert():
+    if not notifications_active:
+        return
+
     global last_entry_id
     rss_url = "https://www3.nhk.or.jp/rss/jalert.xml"
     feed = feedparser.parse(rss_url)
