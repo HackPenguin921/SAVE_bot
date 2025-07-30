@@ -233,6 +233,24 @@ async def check_jalert():
         if channel:
             await channel.send(msg)
 
+@bot.command()
+async def status(ctx):
+    region = user_region.get(str(ctx.author.id))
+    region_str = region['location'] if region else "未設定"
+    
+    channel_id = guild_channels.get(str(ctx.guild.id))
+    channel_str = f"<#{channel_id}>" if channel_id else "未設定"
+    
+    status_str = "通知は **有効** です。" if notifications_active else "通知は **停止中** です。"
+    
+    msg = (
+        f"【設定状況】\n"
+        f"・あなたの地域: {region_str}\n"
+        f"・通知チャンネル: {channel_str}\n"
+        f"・通知状態: {status_str}"
+    )
+    await ctx.send(msg)
+
 @bot.event
 async def on_ready():
     print(f"ログインしました: {bot.user}")
