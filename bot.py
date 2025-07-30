@@ -7,6 +7,7 @@ from datetime import datetime
 from geopy.geocoders import Nominatim
 import feedparser
 
+load_dotenv()
 intents = discord.Intents.default()
 intents.messages = True
 intents.guilds = True
