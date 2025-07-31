@@ -143,6 +143,7 @@ async def check_quake():
             data = await resp.json()
             if not data:
                 return
+
             quake = data[0]
             quake_id = quake.get("id")
             if quake_id == last_quake.get("id"):
@@ -151,12 +152,12 @@ async def check_quake():
             last_quake["id"] = quake_id
             save_json(LAST_QUAKE_FILE, last_quake)
 
-            epicenter = quake["earthquake"]["hypocenter"]["name"]
-            mag = quake["earthquake"]["magnitude"]
-            origin_time = quake["earthquake"]["origin_time"]
-
-            lat = quake["earthquake"]["hypocenter"]["latitude"]
-            lon = quake["earthquake"]["hypocenter"]["longitude"]
+            earthquake = quake.get("earthquake", {})
+            epicenter = earthquake.get("hypocenter", {}).get("name", "不明")
+            mag = earthquake.get("magnitude", "不明")
+            origin_time = earthquake.get("originTime", "不明")
+            lat = earthquake.get("hypocenter", {}).get("latitude", 0)
+            lon = earthquake.get("hypocenter", {}).get("longitude", 0)
 
             for guild_id, channel_id in guild_channels.items():
                 channel = bot.get_channel(channel_id)
@@ -166,18 +167,18 @@ async def check_quake():
                 mentions = []
                 for user_id, region in user_region.items():
                     d = haversine(lat, lon, region["lat"], region["lon"])
-                    shindo = estimate_shindo(mag, d)
+                    shindo = estimate_shindo(mag if isinstance(mag, (int, float)) else 0, d)
                     if shindo >= 3:
-                        mentions.append(f"<@{user_id}> (震度{shindo})")
+                        mentions.append(f"<@{user_id}> (推定震度{shindo})")
 
                 msg = (
-                    f"📢 **緊急地震速報**\n"
+                    f"📢 **地震速報**\n"
                     f"震源地: {epicenter}\n"
                     f"マグニチュード: {mag}\n"
                     f"発生時刻: {origin_time}\n"
                 )
                 if mentions:
-                    msg += "揺れる可能性のあるユーザー:\n" + "\n".join(mentions)
+                    msg += "影響がある可能性のあるユーザー:\n" + "\n".join(mentions)
 
                 await channel.send(msg)
 
